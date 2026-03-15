@@ -15,36 +15,47 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Устанавливаем Qt 6
-        uses: jurplel/install-qt-action@v4
+      - name: Устанавливаем Python
+        uses: actions/setup-python@v5
         with:
-          version: '6.7.3'
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_msvc2019_64'
-          modules: 'qt5compat'
-          # Ключевое: установить приватные заголовки для QXlsx
-          extra: '--archives qtbase qtdeclarative'
-          setup-python: 'false'
+          python-version: '3.11'
 
-      - name: Проверяем структуру Qt
+      - name: Устанавливаем Qt 6 с приватными заголовками
         shell: bash
         run: |
+          pip install aqtinstall
+
+          # Устанавливаем Qt со ВСЕМИ архивами (включая приватные заголовки)
+          aqt install-qt windows desktop 6.7.3 win64_msvc2019_64 \
+            --outputdir "$GITHUB_WORKSPACE/Qt" \
+            --modules qt5compat \
+            --archives qtbase qtdeclarative qttools qt5compat icu
+
+          # Устанавливаем переменные окружения
+          QT_PATH="$GITHUB_WORKSPACE/Qt/6.7.3/msvc2019_64"
+          echo "Qt6_DIR=$QT_PATH" >> $GITHUB_ENV
+          echo "CMAKE_PREFIX_PATH=$QT_PATH" >> $GITHUB_ENV
+          echo "QT_PLUGIN_PATH=$QT_PATH/plugins" >> $GITHUB_ENV
+          echo "$QT_PATH/bin" >> $GITHUB_PATH
+
+      - name: Проверяем наличие GuiPrivate
+        shell: bash
+        run: |
+          echo "=== Ищем Qt6GuiPrivateConfig.cmake ==="
+          find "$GITHUB_WORKSPACE/Qt" -name "Qt6GuiPrivateConfig.cmake" 2>/dev/null || echo "НЕ НАЙДЕН"
+          echo ""
+          echo "=== Ищем private headers ==="
+          find "$GITHUB_WORKSPACE/Qt" -path "*/private/qzipwriter_p.h" 2>/dev/null || echo "НЕ НАЙДЕН"
+          echo ""
           echo "=== Qt6_DIR ==="
           echo "$Qt6_DIR"
-          echo ""
-          echo "=== Ищем Qt6GuiPrivate ==="
-          find "$Qt6_DIR/.." -name "Qt6GuiPrivateConfig.cmake" 2>/dev/null || echo "НЕ НАЙДЕН"
-          echo ""
-          echo "=== Ищем Qt6Config.cmake ==="
-          find "$Qt6_DIR/.." -name "Qt6Config.cmake" 2>/dev/null || echo "НЕ НАЙДЕН"
 
       - name: Настраиваем CMake
         shell: bash
         run: |
           cmake -B build -S salary_calc_Birulevo \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="$Qt6_DIR/.."
+            -DCMAKE_PREFIX_PATH="$Qt6_DIR"
 
       - name: Компилируем плагин
         shell: bash
@@ -55,7 +66,6 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path Plugin_Release
 
-          # Ищем скомпилированную DLL
           $dllFile = Get-ChildItem -Path build -Filter calc_salary.dll -Recurse | Select-Object -First 1
           if ($dllFile) {
               Copy-Item $dllFile.FullName -Destination Plugin_Release\
@@ -65,7 +75,6 @@ jobs:
               exit 1
           }
 
-          # Ищем манифест
           $manifest = Get-ChildItem -Path salary_calc_Birulevo -Filter manifest.json -Recurse | Select-Object -First 1
           if ($manifest) {
               Copy-Item $manifest.FullName -Destination Plugin_Release\
