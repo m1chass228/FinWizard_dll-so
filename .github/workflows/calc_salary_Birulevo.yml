@@ -23,7 +23,7 @@ jobs:
           target: 'desktop'
           arch: 'win64_msvc2019_64'
           # Добавляем модули, которые содержат Private заголовки
-          modules: 'qtbase qtshadertools'
+          modules: 'qtshadertools qtdeclarative'
 
       - name: Настраиваем CMake
         shell: bash
