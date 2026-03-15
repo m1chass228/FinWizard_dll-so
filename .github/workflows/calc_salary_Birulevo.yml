@@ -29,28 +29,15 @@ jobs:
       run: |
         $qtDir = $env:QT_ROOT_DIR
         Write-Host "QT_ROOT_DIR = $qtDir"
-
-        # Проверяем, есть ли Qt6GuiPrivateConfig.cmake
         $configFile = Get-ChildItem -Path "$qtDir\lib\cmake\Qt6GuiPrivate" -Filter "Qt6GuiPrivateConfig.cmake" -ErrorAction SilentlyContinue
-
         if ($configFile) {
           Write-Host "✅ Qt6GuiPrivate config found: $($configFile.FullName)"
         } else {
           Write-Host "❌ Qt6GuiPrivate not found — installing private headers manually..."
-
-          # Устанавливаем aqtinstall
           pip install aqtinstall
-
-          # Определяем базовый путь установки
-          # QT_ROOT_DIR = D:\a\...\Qt\6.7.0\msvc2019_64
-          # Нужен outputdir = D:\a\...\Qt
           $outputDir = Split-Path (Split-Path $qtDir)
           Write-Host "Installing to: $outputDir"
-
-          # Переустанавливаем Qt с полными архивами
           aqt install-qt windows desktop 6.7.0 win64_msvc2019_64 --outputdir "$outputDir"
-
-          # Проверяем снова
           $configFile2 = Get-ChildItem -Path "$qtDir\lib\cmake\Qt6GuiPrivate" -Filter "Qt6GuiPrivateConfig.cmake" -ErrorAction SilentlyContinue
           if ($configFile2) {
             Write-Host "✅ Qt6GuiPrivate now available!"
@@ -76,3 +63,36 @@ jobs:
     - name: Build project
       shell: cmd
       run: cmake --build build --config Release
+
+    - name: Prepare artifact
+      shell: pwsh
+      run: |
+        # Создаём папку для артефакта
+        New-Item -ItemType Directory -Force -Path "artifact"
+
+        # Копируем DLL и манифест
+        Copy-Item "build/calc_salary.dll" -Destination "artifact/" -ErrorAction SilentlyContinue
+        Copy-Item "build/manifest.json" -Destination "artifact/" -ErrorAction SilentlyContinue
+
+        # Копируем зависимые Qt DLL с помощью windeployqt
+        $windeployqt = Join-Path $env:QT_ROOT_DIR "bin\windeployqt.exe"
+        if (Test-Path $windeployqt) {
+          Write-Host "Running windeployqt..."
+          & $windeployqt "artifact/calc_salary.dll" --no-translations --no-opengl-sw --no-system-d3d-compiler
+        } else {
+          Write-Host "⚠️ windeployqt not found, copying Qt DLLs manually..."
+          $qtBin = Join-Path $env:QT_ROOT_DIR "bin"
+          Copy-Item "$qtBin\Qt6Core.dll" -Destination "artifact/" -ErrorAction SilentlyContinue
+          Copy-Item "$qtBin\Qt6Gui.dll" -Destination "artifact/" -ErrorAction SilentlyContinue
+          Copy-Item "$qtBin\Qt6Xml.dll" -Destination "artifact/" -ErrorAction SilentlyContinue
+        }
+
+        Write-Host "Artifact contents:"
+        Get-ChildItem "artifact" -Recurse | ForEach-Object { Write-Host $_.FullName }
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: calc-salary-birulevo-windows
+        path: artifact/
+        retention-days: 30
