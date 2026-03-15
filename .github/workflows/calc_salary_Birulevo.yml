@@ -1,42 +1,47 @@
-name: Build SalaryCalc Birulevo
+name: Build Salary Calc Birulevo
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  build-windows:
+  build:
     runs-on: windows-latest
 
+    env:
+      VCPKG_ROOT: C:/vcpkg
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      # 1. Checkout репозитория
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.12
-
-      - name: Install Qt 6.7.3
+      # 2. Установка vcpkg
+      - name: Install vcpkg
         run: |
-          python -m pip install --upgrade pip aqtinstall
-          python -m aqt list-qt windows desktop 6.7.3 win64_msvc2019_64
-          python -m aqt install-qt windows desktop 6.7.3 win64_msvc2019_64 \
-            --outputdir D:\a\FinWizard_dll-so\Qt \
-            --modules qtbase qt6widgets qt6qml qt5compat
+          git clone https://github.com/microsoft/vcpkg.git %VCPKG_ROOT%
+          %VCPKG_ROOT%/bootstrap-vcpkg.bat
 
+      # 3. Установка Qt через vcpkg
+      - name: Install Qt6 with vcpkg
+        run: |
+          %VCPKG_ROOT%/vcpkg install qt6:x64-windows
+          %VCPKG_ROOT%/vcpkg install qt6-tools:x64-windows  # опционально, если нужны moc, uic и rcc
+
+      # 4. Настройка CMake с vcpkg
       - name: Configure CMake
         run: |
-          cmake -B build -S salary_calc_Birulevo \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="D:\a\FinWizard_dll-so\Qt\6.7.3\msvc2019_64\lib\cmake"
+          cmake -B build -S salary_calc_Birulevo ^
+            -G "Ninja" ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake
 
-      - name: Build
-        run: cmake --build build --config Release --parallel
+      # 5. Сборка проекта
+      - name: Build project
+        run: cmake --build build --config Release
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: salary_calc_birulevo
-          path: build/Release/
+      # 6. (Опционально) Тесты
+      #- name: Run tests
+      #  run: ctest --test-dir build --output-on-failure
