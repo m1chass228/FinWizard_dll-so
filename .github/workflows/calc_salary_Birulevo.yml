@@ -10,34 +10,49 @@ jobs:
   build-windows:
     runs-on: windows-latest
 
-    env:
-      VCPKG_ROOT: C:\vcpkg
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Install vcpkg
-      shell: cmd
-      run: |
-        git clone https://github.com/microsoft/vcpkg.git %VCPKG_ROOT%
-        cd %VCPKG_ROOT%
-        git pull
-        bootstrap-vcpkg.bat
+    - name: Install Qt 6.7
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: '6.7.0'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2019_64'
+        set-env: true
+        cache: true
 
-    - name: Install Qt6 via vcpkg
-      shell: cmd
+    - name: Verify Qt private headers
+      shell: pwsh
       run: |
-        %VCPKG_ROOT%\vcpkg install qt6-base:x64-windows
-        %VCPKG_ROOT%\vcpkg install qt6-tools:x64-windows
+        $qtDir = $env:QT_ROOT_DIR
+        Write-Host "QT_ROOT_DIR = $qtDir"
+
+        # Приватные заголовки лежат в include/QtCore/6.7.0/QtCore/private и т.д.
+        $privatePath = Join-Path $qtDir "include\QtCore\6.7.0\QtCore\private"
+        if (Test-Path $privatePath) {
+          Write-Host "✅ Private headers found at: $privatePath"
+          Get-ChildItem $privatePath | Select-Object -First 5
+        } else {
+          Write-Host "⚠️ Searching for private headers..."
+          Get-ChildItem -Path (Join-Path $qtDir "include") -Recurse -Filter "private" -Directory |
+            Select-Object -First 10 |
+            ForEach-Object { Write-Host $_.FullName }
+        }
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
 
     - name: Configure CMake project
       shell: cmd
       run: |
         cmake -B build -S salary_calc_Birulevo ^
           -G "Ninja" ^
-          -DCMAKE_BUILD_TYPE=Release ^
-          -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake
+          -DCMAKE_BUILD_TYPE=Release
 
     - name: Build project
       shell: cmd
