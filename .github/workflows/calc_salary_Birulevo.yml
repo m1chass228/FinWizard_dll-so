@@ -32,7 +32,7 @@ jobs:
       - name: Setup MSVC environment
         uses: microsoft/setup-msbuild@v1
 
-      # 4️⃣ Install Python (если нужен)
+      # 4️⃣ Install Python
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -46,14 +46,14 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT }}"
 
-      # 6️⃣ Build project
+      # 6️⃣ Build project (ускоряем параллельной сборкой)
       - name: Build with Ninja
         run: |
           cmake --build build --config Release --parallel
 
-      # 7️⃣ (Опционально) Copy artifacts
+      # 7️⃣ Upload artifacts (обновлено на v4)
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: salary_calc_birulevo
           path: build/Release/
