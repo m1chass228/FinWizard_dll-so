@@ -6,17 +6,13 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_CXX_STANDARD 17)
 
-# Добавляем все нужные модули Qt
+# Ищем Qt — GuiPrivate таргет создастся автоматически
 find_package(Qt6 COMPONENTS Core Gui Xml REQUIRED)
-find_package(Qt6GuiPrivate REQUIRED)
 
-# --- ВАЖНО: Впаиваем QXlsx прямо внутрь плагина ---
-# Отключаем сборку QXlsx как отдельной DLL
+# --- QXlsx ---
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 add_subdirectory(3rdparty/QXlsx-1.5.0)
-# Возвращаем настройку обратно для нашего плагина
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
-# --------------------------------------------------
 
 add_library(calc_salary SHARED
     calc_salary_birulevo.cpp
@@ -35,13 +31,11 @@ target_link_libraries(calc_salary PRIVATE
     QXlsx
 )
 
-# Настройки выходного файла (убираем lib и .so, чтобы было кроссплатформенно)
 set_target_properties(calc_salary PROPERTIES
     OUTPUT_NAME "calc_salary"
     PREFIX ""
 )
 
-# Копируем манифест
 add_custom_command(TARGET calc_salary POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
             ${CMAKE_CURRENT_SOURCE_DIR}/manifest.json

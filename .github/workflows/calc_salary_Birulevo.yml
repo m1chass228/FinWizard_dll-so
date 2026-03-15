@@ -21,25 +21,43 @@ jobs:
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2019_64'
-        set-env: true
         cache: true
+        set-env: true
 
-    - name: Verify Qt private headers
+    - name: Verify and fix Qt private headers
       shell: pwsh
       run: |
         $qtDir = $env:QT_ROOT_DIR
         Write-Host "QT_ROOT_DIR = $qtDir"
 
-        # Приватные заголовки лежат в include/QtCore/6.7.0/QtCore/private и т.д.
-        $privatePath = Join-Path $qtDir "include\QtCore\6.7.0\QtCore\private"
-        if (Test-Path $privatePath) {
-          Write-Host "✅ Private headers found at: $privatePath"
-          Get-ChildItem $privatePath | Select-Object -First 5
+        # Проверяем, есть ли Qt6GuiPrivateConfig.cmake
+        $configFile = Get-ChildItem -Path "$qtDir\lib\cmake\Qt6GuiPrivate" -Filter "Qt6GuiPrivateConfig.cmake" -ErrorAction SilentlyContinue
+
+        if ($configFile) {
+          Write-Host "✅ Qt6GuiPrivate config found: $($configFile.FullName)"
         } else {
-          Write-Host "⚠️ Searching for private headers..."
-          Get-ChildItem -Path (Join-Path $qtDir "include") -Recurse -Filter "private" -Directory |
-            Select-Object -First 10 |
-            ForEach-Object { Write-Host $_.FullName }
+          Write-Host "❌ Qt6GuiPrivate not found — installing private headers manually..."
+
+          # Устанавливаем aqtinstall
+          pip install aqtinstall
+
+          # Определяем базовый путь установки
+          # QT_ROOT_DIR = D:\a\...\Qt\6.7.0\msvc2019_64
+          # Нужен outputdir = D:\a\...\Qt
+          $outputDir = Split-Path (Split-Path $qtDir)
+          Write-Host "Installing to: $outputDir"
+
+          # Переустанавливаем Qt с полными архивами
+          aqt install-qt windows desktop 6.7.0 win64_msvc2019_64 --outputdir "$outputDir"
+
+          # Проверяем снова
+          $configFile2 = Get-ChildItem -Path "$qtDir\lib\cmake\Qt6GuiPrivate" -Filter "Qt6GuiPrivateConfig.cmake" -ErrorAction SilentlyContinue
+          if ($configFile2) {
+            Write-Host "✅ Qt6GuiPrivate now available!"
+          } else {
+            Write-Host "Listing cmake directories:"
+            Get-ChildItem "$qtDir\lib\cmake" -Directory | Where-Object { $_.Name -match "Private" } | ForEach-Object { Write-Host $_.Name }
+          }
         }
 
     - name: Setup MSVC
@@ -52,7 +70,8 @@ jobs:
       run: |
         cmake -B build -S salary_calc_Birulevo ^
           -G "Ninja" ^
-          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_BUILD_TYPE=Release ^
+          -DCMAKE_PREFIX_PATH=%QT_ROOT_DIR%
 
     - name: Build project
       shell: cmd
