@@ -3,56 +3,39 @@ name: Build SalaryCalc Birulevo
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 jobs:
   build-windows:
     runs-on: windows-latest
-    env:
-      PYTHON_VERSION: 3.12.10
 
     steps:
-      # 1️⃣ Checkout code
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v3
 
-      # 2️⃣ Install Qt 6.7.3 with private headers
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: 6.7.3
-          host: windows
-          target: desktop
-          arch: win64_msvc2019_64
-          modules: qtbase qt6gui-private qt6core qt6widgets qt6qml qt5compat
-          cache: true
-
-      # 3️⃣ Setup MSVC environment
-      - name: Setup MSVC environment
-        uses: microsoft/setup-msbuild@v1
-
-      # 4️⃣ Install Python
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: 3.12
 
-      # 5️⃣ Configure CMake
+      - name: Install Qt 6.7.3
+        run: |
+          python -m pip install --upgrade pip aqtinstall
+          python -m aqt list-qt windows desktop 6.7.3 win64_msvc2019_64
+          python -m aqt install-qt windows desktop 6.7.3 win64_msvc2019_64 \
+            --outputdir D:\a\FinWizard_dll-so\Qt \
+            --modules qtbase qt6widgets qt6qml qt5compat
+
       - name: Configure CMake
         run: |
           cmake -B build -S salary_calc_Birulevo \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT }}"
+            -DCMAKE_PREFIX_PATH="D:\a\FinWizard_dll-so\Qt\6.7.3\msvc2019_64\lib\cmake"
 
-      # 6️⃣ Build project (ускоряем параллельной сборкой)
-      - name: Build with Ninja
-        run: |
-          cmake --build build --config Release --parallel
+      - name: Build
+        run: cmake --build build --config Release --parallel
 
-      # 7️⃣ Upload artifacts (обновлено на v4)
-      - name: Upload artifacts
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: salary_calc_birulevo
