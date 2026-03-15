@@ -22,6 +22,8 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2019_64'
+          # Добавляем модули, которые содержат Private заголовки
+          modules: 'qtbase qtshadertools'
 
       - name: Настраиваем CMake
         shell: bash
