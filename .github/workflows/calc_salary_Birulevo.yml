@@ -25,13 +25,14 @@ jobs:
         run: |
           pip install aqtinstall
 
-          # Пытаемся установить с полными именами модулей.
-          # Если они не найдутся, aqt просто пропустит их, но не упадет (флаг --no-not-found-error)
+          # Устанавливаем Qt 6.7.3.
+          # ВАЖНО: Модули shadertools и qt5compat — это то, что нужно для GuiPrivate и совместимости.
+          # Если какой-то модуль не найдется, флаг --keep-going позволит продолжить установку.
           python -m aqt install-qt windows desktop 6.7.3 win64_msvc2019_64 \
             --outputdir "${{ github.workspace }}/Qt" \
-            --modules qtshadertools qtdeclarative qt5compat
+            --modules shadertools qt5compat
 
-          # Прописываем пути в системные переменные GitHub
+          # Настройка переменных окружения
           QT_PATH="${{ github.workspace }}/Qt/6.7.3/msvc2019_64"
           echo "Qt6_DIR=$QT_PATH" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$QT_PATH" >> $GITHUB_ENV
@@ -52,29 +53,28 @@ jobs:
       - name: Подготавливаем файлы для скачивания
         shell: pwsh
         run: |
-          # Создаем папку для артефактов
-          if (!(Test-Path Plugin_Release)) { New-Item -ItemType Directory -Path Plugin_Release }
+          New-Item -ItemType Directory -Force -Path Plugin_Release
 
-          # Ищем DLL, исключая мусор
+          # Ищем DLL в папке build
           $dllFile = Get-ChildItem -Path build -Filter *.dll -Recurse | Where-Object { $_.FullName -notmatch "3rdparty" } | Select-Object -First 1
 
           if ($dllFile) {
               Copy-Item $dllFile.FullName -Destination Plugin_Release\
               Write-Host "Found DLL: $($dllFile.FullName)"
           } else {
-              Write-Error "Файл DLL не найден!"
+              Write-Error "Файл DLL не найден в папке build!"
               exit 1
           }
 
-          # Копируем манифест
+          # Ищем манифест
           $manifest = "salary_calc_Birulevo/manifest.json"
           if (Test-Path $manifest) {
               Copy-Item $manifest -Destination Plugin_Release\
-              Write-Host "Manifest copied."
+              Write-Host "Found manifest"
           }
 
       - name: Загружаем готовую DLL на GitHub
         uses: actions/upload-artifact@v4
         with:
-          name: Birulevo-Plugin-Windows
+          name: Plugin-Windows-DLL
           path: Plugin_Release\
