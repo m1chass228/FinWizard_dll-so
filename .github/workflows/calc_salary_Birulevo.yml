@@ -25,30 +25,22 @@ jobs:
         run: |
           pip install aqtinstall
 
-          # Устанавливаем Qt 6.7.3.
-          # Мы НЕ используем флаг --archives, так как --modules qtshadertools qt5compat
-          # в 99% случаев подтягивают нужные приватные зависимости автоматически.
+          # Устанавливаем Qt 6.7.3
+          # Исправленные имена модулей: shadertools, declarative, qt5compat
           python -m aqt install-qt windows desktop 6.7.3 win64_msvc2019_64 \
             --outputdir "${{ github.workspace }}/Qt" \
-            --modules qtshadertools qt5compat qtdeclarative
+            --modules shadertools declarative qt5compat
 
-          # Настройка переменных окружения (используем формат GITHUB_ENV для надежности)
+          # Настройка путей
           QT_PATH="${{ github.workspace }}/Qt/6.7.3/msvc2019_64"
           echo "Qt6_DIR=$QT_PATH" >> $GITHUB_ENV
           echo "CMAKE_PREFIX_PATH=$QT_PATH" >> $GITHUB_ENV
           echo "QT_PLUGIN_PATH=$QT_PATH/plugins" >> $GITHUB_ENV
           echo "$QT_PATH/bin" >> $GITHUB_PATH
 
-      - name: Проверка путей для CMake
-        shell: bash
-        run: |
-          echo "Ищем конфиги в: $Qt6_DIR/lib/cmake"
-          find "$Qt6_DIR/lib/cmake" -name "*GuiPrivate*" || echo "GuiPrivate НЕ НАЙДЕН"
-
       - name: Настраиваем CMake
         shell: bash
         run: |
-          # Используем переменную из GITHUB_ENV
           cmake -B build -S salary_calc_Birulevo \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
@@ -62,7 +54,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path Plugin_Release
 
-          # Ищем DLL (имя может отличаться, поэтому ищем *.dll в папке build)
+          # Ищем любую DLL в папке build, игнорируя 3rdparty
           $dllFile = Get-ChildItem -Path build -Filter *.dll -Recurse | Where-Object { $_.FullName -notmatch "3rdparty" } | Select-Object -First 1
 
           if ($dllFile) {
@@ -73,7 +65,7 @@ jobs:
               exit 1
           }
 
-          # Ищем манифест
+          # Копируем манифест
           $manifest = "salary_calc_Birulevo/manifest.json"
           if (Test-Path $manifest) {
               Copy-Item $manifest -Destination Plugin_Release\
@@ -83,5 +75,5 @@ jobs:
       - name: Загружаем готовую DLL на GitHub
         uses: actions/upload-artifact@v4
         with:
-          name: Plugin-Windows-DLL
+          name: Birulevo-Plugin-Windows
           path: Plugin_Release\
