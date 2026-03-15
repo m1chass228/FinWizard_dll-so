@@ -1,0 +1,61 @@
+name: Build Windows Plugin (DLL)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-plugin:
+    runs-on: windows-latest
+
+    steps:
+      - name: Скачиваем код плагина
+        uses: actions/checkout@v4
+        with:
+          # Важно! Если QXlsx добавлен как submodule, это его скачает
+          submodules: recursive 
+
+      - name: Устанавливаем Qt 6
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '6.6.0'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+
+      - name: Настраиваем CMake
+        shell: bash
+        # Если твой CMakeLists.txt лежит в корне репозитория плагина, то пишем -S .
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Компилируем плагин
+        shell: bash
+        run: cmake --build build --config Release
+
+      - name: Подготавливаем файлы для скачивания
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path Plugin_Release
+          
+          # Ищем скомпилированную DLL
+          $dllFile = Get-ChildItem -Path build -Filter calc_salary.dll -Recurse | Select-Object -First 1
+          if ($dllFile) {
+              Copy-Item $dllFile.FullName -Destination Plugin_Release\
+              Write-Host "Found DLL: $($dllFile.FullName)"
+          } else {
+              Write-Error "Файл DLL не найден!"
+              exit 1
+          }
+
+          # Ищем манифест
+          $manifest = Get-ChildItem -Path . -Filter manifest.json -Recurse | Select-Object -First 1
+          if ($manifest) {
+              Copy-Item $manifest.FullName -Destination Plugin_Release\
+          }
+
+      - name: Загружаем готовую DLL на GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: Plugin-Windows-DLL
+          path: Plugin_Release\

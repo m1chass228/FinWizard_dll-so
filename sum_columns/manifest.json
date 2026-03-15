@@ -1,0 +1,9 @@
+{
+  "name": "Сумма столбцов",
+  "description": "Суммирует значения в первом столбце всех XLSX-файлов",
+  "entry": "sum_columns.so",
+  "type": "cpp-plugin",
+  "version": "1.0",
+  "author": "Ты",
+  "requires": []
+}

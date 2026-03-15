@@ -1,0 +1,11 @@
+{
+  "name": "Расчет ЗП (Бирюлево)",
+  "description": "Сводит данные по зарплатам, УС и аптеке в отдельные листы по каждой фамилии. Формирует итоговые таблицы.",
+  "type": "cpp-plugin",
+  "entry_win": "calc_salary.dll",
+  "entry_linux": "libcalc_salary.so",
+  "entry": "calc_salary.dll",
+  "version": "1.0",
+  "author": "FinWizard Creator",
+  "requires": []
+}
