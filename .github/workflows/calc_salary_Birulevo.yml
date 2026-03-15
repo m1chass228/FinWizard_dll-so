@@ -16,18 +16,35 @@ jobs:
           submodules: recursive
 
       - name: Устанавливаем Qt 6
-        uses: jurplel/install-qt-action@v3
+        uses: jurplel/install-qt-action@v4
         with:
-          version: '6.6.0'
+          version: '6.7.3'
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2019_64'
           modules: 'qt5compat'
+          # Ключевое: установить приватные заголовки для QXlsx
+          extra: '--archives qtbase qtdeclarative'
+          setup-python: 'false'
+
+      - name: Проверяем структуру Qt
+        shell: bash
+        run: |
+          echo "=== Qt6_DIR ==="
+          echo "$Qt6_DIR"
+          echo ""
+          echo "=== Ищем Qt6GuiPrivate ==="
+          find "$Qt6_DIR/.." -name "Qt6GuiPrivateConfig.cmake" 2>/dev/null || echo "НЕ НАЙДЕН"
+          echo ""
+          echo "=== Ищем Qt6Config.cmake ==="
+          find "$Qt6_DIR/.." -name "Qt6Config.cmake" 2>/dev/null || echo "НЕ НАЙДЕН"
 
       - name: Настраиваем CMake
         shell: bash
-        # ЖЕСТКО указываем правильную папку с твоим плагином: salary_calc_Birulevo
-        run: cmake -B build -S salary_calc_Birulevo -DCMAKE_BUILD_TYPE=Release
+        run: |
+          cmake -B build -S salary_calc_Birulevo \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$Qt6_DIR/.."
 
       - name: Компилируем плагин
         shell: bash
@@ -48,13 +65,13 @@ jobs:
               exit 1
           }
 
-          # Ищем манифест именно в папке salary_calc_Birulevo
+          # Ищем манифест
           $manifest = Get-ChildItem -Path salary_calc_Birulevo -Filter manifest.json -Recurse | Select-Object -First 1
           if ($manifest) {
               Copy-Item $manifest.FullName -Destination Plugin_Release\
               Write-Host "Found manifest: $($manifest.FullName)"
           } else {
-              Write-Warning "manifest.json не найден, проверьте, лежит ли он в папке!"
+              Write-Warning "manifest.json не найден!"
           }
 
       - name: Загружаем готовую DLL на GitHub
