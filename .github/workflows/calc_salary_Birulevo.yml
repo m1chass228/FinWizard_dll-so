@@ -18,7 +18,13 @@ jobs:
       - name: Устанавливаем Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
+
+      - name: Устанавливаем Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v4
+
+      - name: Настраиваем MSVC
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Cache Qt
         id: cache-qt
@@ -27,7 +33,7 @@ jobs:
           path: Qt
           key: qt-6.7.3-msvc2022
 
-      - name: Устанавливаем Qt 6 (aqtinstall)
+      - name: Устанавливаем Qt
         if: steps.cache-qt.outputs.cache-hit != 'true'
         shell: bash
         run: |
@@ -35,10 +41,9 @@ jobs:
 
           python -m aqt install-qt windows desktop 6.7.3 win64_msvc2022_64 \
             --outputdir "${{ github.workspace }}/Qt" \
-            --modules qtshadertools qt5compat \
-            --keep-going
+            --modules qtshadertools qt5compat
 
-      - name: Настраиваем переменные Qt
+      - name: Настраиваем Qt переменные
         shell: bash
         run: |
           QT_PATH="${{ github.workspace }}/Qt/6.7.3/msvc2022_64"
@@ -48,18 +53,20 @@ jobs:
           echo "QT_PLUGIN_PATH=$QT_PATH/plugins" >> $GITHUB_ENV
           echo "$QT_PATH/bin" >> $GITHUB_PATH
 
-      - name: Настраиваем CMake
+      - name: Configure CMake (Ninja)
         shell: bash
         run: |
           cmake -B build -S salary_calc_Birulevo \
+            -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
 
-      - name: Компилируем плагин
+      - name: Build plugin
         shell: bash
-        run: cmake --build build --config Release
+        run: |
+          cmake --build build
 
-      - name: Подготавливаем файлы для скачивания
+      - name: Подготавливаем файлы
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path Plugin_Release
@@ -72,7 +79,7 @@ jobs:
               Copy-Item $dllFile.FullName -Destination Plugin_Release\
               Write-Host "Found DLL: $($dllFile.FullName)"
           } else {
-              Write-Error "Файл DLL не найден!"
+              Write-Error "DLL не найден!"
               exit 1
           }
 
