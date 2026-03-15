@@ -1,30 +1,23 @@
-name: Build Windows Plugin
+name: Build SalaryCalc Birulevo
 
 on:
   push:
-    branches: [ main, master, dev ]
+    branches: [main]
   pull_request:
-  workflow_dispatch:
+    branches: [main]
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
+    env:
+      PYTHON_VERSION: 3.12.10
 
     steps:
+      # 1️⃣ Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Setup Ninja
-        uses: seanmiddleditch/gha-setup-ninja@v4
-
-      # ---------- INSTALL QT (FAST + CACHE) ----------
-
+      # 2️⃣ Install Qt 6.7.3 with private headers
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -32,52 +25,35 @@ jobs:
           host: windows
           target: desktop
           arch: win64_msvc2019_64
-          modules: qtshadertools qt5compat
+          modules: qtbase qt6gui-private qt6core qt6widgets qt6qml qt5compat
           cache: true
 
-      # ---------- CONFIGURE ----------
+      # 3️⃣ Setup MSVC environment
+      - name: Setup MSVC environment
+        uses: microsoft/setup-msbuild@v1
 
-      - name: Configure
-        shell: bash
+      # 4️⃣ Install Python (если нужен)
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # 5️⃣ Configure CMake
+      - name: Configure CMake
         run: |
-
           cmake -B build -S salary_calc_Birulevo \
             -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT }}"
 
-      # ---------- BUILD ----------
-
-      - name: Build
-        shell: bash
+      # 6️⃣ Build project
+      - name: Build with Ninja
         run: |
+          cmake --build build --config Release --parallel
 
-          cmake --build build --parallel
-
-      # ---------- ARTIFACT ----------
-
-      - name: Prepare artifact
-        shell: pwsh
-        run: |
-
-          New-Item -ItemType Directory -Force -Path Plugin_Release
-
-          $dll = Get-ChildItem build -Filter *.dll -Recurse |
-            Select-Object -First 1
-
-          if ($dll) {
-              Copy-Item $dll.FullName Plugin_Release\
-              Write-Host "DLL found: $($dll.FullName)"
-          } else {
-              Write-Error "DLL not found"
-              exit 1
-          }
-
-          if (Test-Path "salary_calc_Birulevo/manifest.json") {
-              Copy-Item salary_calc_Birulevo/manifest.json Plugin_Release\
-          }
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      # 7️⃣ (Опционально) Copy artifacts
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
         with:
-          name: plugin-windows
-          path: Plugin_Release\
+          name: salary_calc_birulevo
+          path: build/Release/
