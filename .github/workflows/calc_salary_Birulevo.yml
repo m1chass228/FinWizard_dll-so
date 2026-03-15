@@ -2,45 +2,43 @@ name: Build Salary Calc Birulevo
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
 
     env:
-      VCPKG_ROOT: C:/vcpkg
+      VCPKG_ROOT: C:\vcpkg
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      # Клонируем vcpkg
-      - name: Clone vcpkg
-        shell: cmd
-        run: |
-          git clone https://github.com/microsoft/vcpkg.git %VCPKG_ROOT%
-          %VCPKG_ROOT%\bootstrap-vcpkg.bat
+    - name: Install vcpkg
+      shell: cmd
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git %VCPKG_ROOT%
+        cd %VCPKG_ROOT%
+        git pull
+        bootstrap-vcpkg.bat
 
-      # Устанавливаем Qt6 через vcpkg
-      - name: Install Qt6 via vcpkg
-        shell: cmd
-        run: |
-          %VCPKG_ROOT%\vcpkg install qt6:x64-windows
-          %VCPKG_ROOT%\vcpkg install qt6-tools:x64-windows
+    - name: Install Qt6 via vcpkg
+      shell: cmd
+      run: |
+        %VCPKG_ROOT%\vcpkg install qt6-base:x64-windows
+        %VCPKG_ROOT%\vcpkg install qt6-tools:x64-windows
 
-      # Настраиваем CMake
-      - name: Configure CMake
-        shell: cmd
-        run: |
-          cmake -B build -S salary_calc_Birulevo ^
-            -G "Ninja" ^
-            -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake
+    - name: Configure CMake project
+      shell: cmd
+      run: |
+        cmake -B build -S salary_calc_Birulevo ^
+          -G "Ninja" ^
+          -DCMAKE_BUILD_TYPE=Release ^
+          -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake
 
-      # Сборка проекта
-      - name: Build project
-        shell: cmd
-        run: cmake --build build --config Release
+    - name: Build project
+      shell: cmd
+      run: cmake --build build --config Release
