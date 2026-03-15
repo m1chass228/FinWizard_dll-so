@@ -27,7 +27,7 @@ jobs:
       - name: Настраиваем CMake
         shell: bash
         # Если твой CMakeLists.txt лежит в корне репозитория плагина, то пишем -S .
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -S FinWizard_dll-so -DCMAKE_BUILD_TYPE=Release
 
       - name: Компилируем плагин
         shell: bash
