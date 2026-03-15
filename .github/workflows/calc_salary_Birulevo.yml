@@ -14,34 +14,33 @@ jobs:
       VCPKG_ROOT: C:/vcpkg
 
     steps:
-      # 1. Checkout репозитория
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Установка vcpkg
-      - name: Install vcpkg
+      # Клонируем vcpkg
+      - name: Clone vcpkg
+        shell: cmd
         run: |
           git clone https://github.com/microsoft/vcpkg.git %VCPKG_ROOT%
-          %VCPKG_ROOT%/bootstrap-vcpkg.bat
+          %VCPKG_ROOT%\bootstrap-vcpkg.bat
 
-      # 3. Установка Qt через vcpkg
-      - name: Install Qt6 with vcpkg
+      # Устанавливаем Qt6 через vcpkg
+      - name: Install Qt6 via vcpkg
+        shell: cmd
         run: |
-          %VCPKG_ROOT%/vcpkg install qt6:x64-windows
-          %VCPKG_ROOT%/vcpkg install qt6-tools:x64-windows  # опционально, если нужны moc, uic и rcc
+          %VCPKG_ROOT%\vcpkg install qt6:x64-windows
+          %VCPKG_ROOT%\vcpkg install qt6-tools:x64-windows
 
-      # 4. Настройка CMake с vcpkg
+      # Настраиваем CMake
       - name: Configure CMake
+        shell: cmd
         run: |
           cmake -B build -S salary_calc_Birulevo ^
             -G "Ninja" ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%/scripts/buildsystems/vcpkg.cmake
+            -DCMAKE_TOOLCHAIN_FILE=%VCPKG_ROOT%\scripts\buildsystems\vcpkg.cmake
 
-      # 5. Сборка проекта
+      # Сборка проекта
       - name: Build project
+        shell: cmd
         run: cmake --build build --config Release
-
-      # 6. (Опционально) Тесты
-      #- name: Run tests
-      #  run: ctest --test-dir build --output-on-failure
