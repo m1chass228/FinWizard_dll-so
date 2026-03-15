@@ -10,9 +10,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Скачиваем код
+      - name: Скачиваем код плагина
         uses: actions/checkout@v4
         with:
+          # Важно! Если QXlsx добавлен как submodule, это его скачает
           submodules: recursive
 
       - name: Устанавливаем Qt 6
@@ -22,13 +23,11 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2019_64'
-          # Добавляем модули, которые содержат Private заголовки
-          modules: 'qtshadertools qtdeclarative'
 
       - name: Настраиваем CMake
         shell: bash
-        # Указываем путь к папке с плагином
-        run: cmake -B build -S salary_calc_Birulevo -DCMAKE_BUILD_TYPE=Release
+        # Если твой CMakeLists.txt лежит в корне репозитория плагина, то пишем -S .
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
       - name: Компилируем плагин
         shell: bash
@@ -39,8 +38,8 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path Plugin_Release
 
-          # Ищем DLL в папке сборки
-          $dllFile = Get-ChildItem -Path build -Filter *.dll -Recurse | Select-Object -First 1
+          # Ищем скомпилированную DLL
+          $dllFile = Get-ChildItem -Path build -Filter calc_salary.dll -Recurse | Select-Object -First 1
           if ($dllFile) {
               Copy-Item $dllFile.FullName -Destination Plugin_Release\
               Write-Host "Found DLL: $($dllFile.FullName)"
@@ -49,14 +48,14 @@ jobs:
               exit 1
           }
 
-          # Ищем манифест конкретно в папке плагина
-          $manifest = "salary_calc_Birulevo/manifest.json"
-          if (Test-Path $manifest) {
-              Copy-Item $manifest -Destination Plugin_Release\
+          # Ищем манифест
+          $manifest = Get-ChildItem -Path . -Filter manifest.json -Recurse | Select-Object -First 1
+          if ($manifest) {
+              Copy-Item $manifest.FullName -Destination Plugin_Release\
           }
 
       - name: Загружаем готовую DLL на GitHub
         uses: actions/upload-artifact@v4
         with:
-          name: Birulevo-Plugin-Windows
+          name: Plugin-Windows-DLL
           path: Plugin_Release\

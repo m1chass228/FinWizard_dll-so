@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(SumColumns LANGUAGES CXX)
+project(Calc_salary_birulevo LANGUAGES CXX)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
