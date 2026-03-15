@@ -2,7 +2,7 @@ name: Build Windows Plugin (DLL)
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "dev" ]
   workflow_dispatch:
 
 jobs:
@@ -13,7 +13,6 @@ jobs:
       - name: Скачиваем код плагина
         uses: actions/checkout@v4
         with:
-          # Важно! Если QXlsx добавлен как submodule, это его скачает
           submodules: recursive
 
       - name: Устанавливаем Qt 6
@@ -23,15 +22,11 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2019_64'
+          modules: 'qt5compat'
 
       - name: Настраиваем CMake
         shell: bash
-        # Если твой CMakeLists.txt лежит в корне репозитория плагина, то пишем -S .
-        run: cmake -B build -S FinWizard_dll-so -DCMAKE_BUILD_TYPE=Release
-
-      - name: Настраиваем CMake
-        shell: bash
-        # ТУТ ПИШЕМ ПУТЬ К ПАПКЕ ПЛАГИНА!
+        # ЖЕСТКО указываем правильную папку с твоим плагином: salary_calc_Birulevo
         run: cmake -B build -S salary_calc_Birulevo -DCMAKE_BUILD_TYPE=Release
 
       - name: Компилируем плагин
@@ -43,6 +38,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path Plugin_Release
 
+          # Ищем скомпилированную DLL
           $dllFile = Get-ChildItem -Path build -Filter calc_salary.dll -Recurse | Select-Object -First 1
           if ($dllFile) {
               Copy-Item $dllFile.FullName -Destination Plugin_Release\
@@ -52,10 +48,13 @@ jobs:
               exit 1
           }
 
-          # ТУТ ТОЖЕ ИЩЕМ МАНИФЕСТ ВНУТРИ ПАПКИ ПЛАГИНА!
+          # Ищем манифест именно в папке salary_calc_Birulevo
           $manifest = Get-ChildItem -Path salary_calc_Birulevo -Filter manifest.json -Recurse | Select-Object -First 1
           if ($manifest) {
               Copy-Item $manifest.FullName -Destination Plugin_Release\
+              Write-Host "Found manifest: $($manifest.FullName)"
+          } else {
+              Write-Warning "manifest.json не найден, проверьте, лежит ли он в папке!"
           }
 
       - name: Загружаем готовую DLL на GitHub
